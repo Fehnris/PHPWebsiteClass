@@ -2,7 +2,7 @@
 
    include("Website.php");
 
-   //Website Class takes Array of config file names.
+   //Website Class takes Array of settings file names.
    //Optional, can be empty array for defaults.
    $settingsFiles = array();
    //An array to store configuration settings.
