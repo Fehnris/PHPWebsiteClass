@@ -2,6 +2,8 @@
 
 	//Include the config_Header file which sets up the website class object.
 	include("config_Files/config_Header.php");
+	//The include file above creates a data object called $website.
+	//Database credentials can be retrieved from this object as shown below.
 ?>
 <!doctype html>
 <html>
