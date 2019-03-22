@@ -3,7 +3,7 @@
 	//include website configuration file that sets up various website features.
 	//Features such as database details are made available through the reading of json files that store database details.
 	include("../config_Files/config_Header.php");
-	include("../config_Files/Speaker.php");
+	include("../config_Files/Product.php");
 
 ?>
 <!doctype html>
@@ -18,24 +18,19 @@
 <?php
 	
 	if($website->hasMysql()) {
-		$id = array("fieldName"=>"id", "fieldValue"=>$_REQUEST['id'], "fieldType"=>"i");
-		$speaker = new Speaker($id, $dbAttributes, $website->mysqlConn());
-		echo "Connection Success! Model Searched: ".$id['fieldValue']."<br />";
-		if($speaker->detailsValid) {
-			echo "Range: ".$speaker->details['RangeID']."<br />";
-			echo "Speaker Name: ".$speaker->details['SpeakerName']."<br />";
-			echo "Speaker Summary: ".$speaker->details['SpeakerBlob']."<br />";
-			echo "Speaker Server Path: ".$speaker->details['SpeakerServerPath']."<br />";
+		$searchArray = array("fieldName"=>"id", "fieldValue"=>$_REQUEST['id'], "fieldType"=>"i");
+		$some_product = new Product($searchArray, $dbAttributes, $website->mysqlConn());
+		if($some_product->detailsValid) {
+			//output some details from $some_product->details[<Variable Name>];
 		}
 		else {
-			for($c = 0; $c < count($speaker->error); $c++) {
-				foreach($speaker->error[$c] as $field => $value) {
+			for($c = 0; $c < count($some_product->error); $c++) {
+				foreach($ssome_product->error[$c] as $field => $value) {
 					echo $field.": ".$value;
 				}
 				echo "<br />";
 			}
 		}
-		$speaker->load_finishes($priceQuery, $priceParams);
 	}
 	else {
 		echo $website->mysqlError();
