@@ -25,7 +25,7 @@
 		}
 		else {
 			for($c = 0; $c < count($some_product->error); $c++) {
-				foreach($ssome_product->error[$c] as $field => $value) {
+				foreach($some_product->error[$c] as $field => $value) {
 					echo $field.": ".$value;
 				}
 				echo "<br />";
