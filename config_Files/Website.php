@@ -1,9 +1,7 @@
 <?php
 
-//A website data class to store various website information.
-
 class Website {
-
+	
 	private $features;
 	private $mysqlDB;
 	private $postgresqlDB;
@@ -11,33 +9,31 @@ class Website {
 	private $configDir;
 	private $settingsDir;
 	private $confObjects;
-
+	protected static $mysqlConn;
+	protected static $mysqlError;
+	protected static $postgresqlConn;
+	protected static $postgresqlError;
+	
 	public function __construct($config) {
 		$this->webroot = $this->getRoot($config["currentDir"], $config["webroot"]);
 		$this->configDir = $config["currentDir"];
 		$this->setSettingsDir($config["settingsDir"]);
 		$this->features = array();
-
-		$this->setObjects($config["settingsFiles"]);
-		$this->loadSettings();
+		$this->loadSettings($this->setObjects($config["settingsFiles"]));
 	}
-
-	private function setObjects($config) {
-		$this->confObjects = array("mysqlConnSettings"=>array("fileName"=>"", "method"=>"readMysqlSettings"),
-								   "postgresqlConnSettings"=>array("fileName"=>"", "method"=>"readPostgresqlSettings"));
-
-		if(!isset($config["mysqlConnSettings"])) { $this->confObjects["mysqlConnSettings"]["fileName"] = "mysqlConnSettings.json"; }
-		else { $this->confObjects["mysqlConnSettings"]["fileName"] = $config["mysqlConnSettings"]; }
-
-		if(!isset($config["postgresqlConnSettings"])) { $this->confObjects["postgresqlConnSettings"]["fileName"] = "postgresqlConnSettings.json"; }
-		else { $this->confObjects["postgresqlConnSettings"]["fileName"] = $config["postgresqlConnSettings"]; }
+	
+	private function setObjects($c) {
+		$cO = array("mysqlConnSettings"=>array("fileName"=>"", "method"=>"readMysqlSettings"),
+					"postgresqlConnSettings"=>array("fileName"=>"", "method"=>"readPostgresqlSettings"));
+		$cO["mysqlConnSettings"]["fileName"] = (!isset($c["mysqlConnSettings"])) ? "mysqlConnSettings.json" : $c["mysqlConnSettings"];
+		$cO["postgresqlConnSettings"]["fileName"] = (!isset($c["postgresqlConnSettings"])) ? "postgresqlConnSettings.json" : $c["postgresqlConnSettings"];
+		return $cO;
 	}
-
+	
 	private function setSettingsDir($data) {
-		if(isset($data)) { $this->settingsDir = $data."/"; }
-		else { $this->settingsDir = $this->configDir."Settings/"; }
+		$this->settingsDir = (isset($data)) ? $data."/" : $this->configDir."Settings/";
 	}
-
+	
 	private function getRoot($currentDir, $rootOffset) {
 		$root = "";
 		$path = explode("/", $currentDir);
@@ -51,10 +47,10 @@ class Website {
 		}
 		return $root;
 	}
-
-	private function loadSettings() {
+	
+	private function loadSettings($cO) {
 		$files = scandir($this->settingsDir);
-		foreach($this->confObjects as $key=>$confName) {
+		foreach($cO as $key=>$confName) {
 			foreach($files as $file) {
 				if($file == $confName["fileName"]) {
 					$data = $this->readFile($this->settingsDir.$file);
@@ -63,19 +59,60 @@ class Website {
 			}
 		}
 	}
-
+	
 	private function readMysqlSettings($data) {
-		if($data == false) { $this->features["hasMysql"] = false; }
+		$this->features["hasMysql"] = false;
+		if($data === false) { self::$mysqlError = "Failed to retrieve connection settings"; }
 		else {
-			$this->mysqlDB = array("Credentials"=>array("Username"=>$data["Username"],
-														"Password"=>$data["Password"]),
-								   "Host"=>array("Hostname"=>$data["Host"],
-												 "Port"=>$data["Port"]),
-								   "Database"=>$data["Database"]);
-			$this->features["hasMysql"] = true;
+			$c = 0;
+			$error = array();
+			foreach($data as $key => $value) {
+				if(!isset($value) || $value == "") {
+					$error[$c] = $key;
+					$c++;
+				}
+			}
+			if(count($error) > 0) {
+				self::$mysqlError = "Missing connection settings: ".implode("/", $error);
+			}
+			else {
+				$this->mysqlDB = array("Credentials"=>array("Username"=>$data["Username"],
+															"Password"=>$data["Password"]),
+									   "Host"=>array("Hostname"=>$data["Host"],
+													 "Port"=>$data["Port"]),
+									   "Database"=>$data["Database"]);
+				$this->features["hasMysql"] = $this->createMysqlConn();
+			}
 		}
 	}
-
+	
+	
+	private function createMysqlConn() {
+		$connEstablished = false;
+		if(!isset(self::$mysqlConn)) {
+			self::$mysqlConn = new mysqli($this->mysqlDB['Host']['Hostname'], 
+											 $this->mysqlDB['Credentials']['Username'], 
+											 $this->mysqlDB['Credentials']['Password'], 
+											 $this->mysqlDB['Database']);
+		}
+		if(self::$mysqlConn === false) {
+            self::$mysqlError = "Failed to connect to database";
+        }
+		else {
+			//self::$mysqlConn->set_charset("utf8mb4");
+			$connEstablished = true;
+		}
+		return $connEstablished;
+	}
+	
+	public function mysqlConn() {
+        return self::$mysqlConn;
+    }
+	
+	public function mysqlError() {
+        return self::$mysqlError;
+    }
+	
 	private function readPostgresqlSettings($data) {
 		if($data == false) { $this->features["hasPostgresql"] = false; }
 		else {
@@ -87,118 +124,27 @@ class Website {
 			$this->features["hasPostgresql"] = true;
 		}
 	}
-
+	
 	private function readFile($fileName) {
 		if ( file_exists($fileName) && ($fp = fopen($fileName, "r"))!==false ) {
 			$json = json_decode(fread($fp, filesize($fileName)), TRUE);
 			fclose($fp);
-			return $json;
+			return $json;    
 		}
 		else {
-			return false;
+			return false; 
 		}
 	}
-
+	
 	//Public Methods
-
+	
 	public function hasMysql() {
 		return $this->features["hasMysql"];
 	}
-
+	
 	public function hasPostgresql() {
 		return $this->features["hasPostgresql"];
 	}
-
-	public function mysqlUser() {
-		if($this->features["hasMysql"]) {
-			return $this->mysqlDB["Credentials"]["Username"];
-		}
-		else {
-			return "not configured";
-		}
-	}
-
-	public function mysqlPass() {
-		if($this->features["hasMysql"]) {
-			return $this->mysqlDB["Credentials"]["Password"];
-		}
-		else {
-			return "not configured";
-		}
-	}
-
-	public function mysqlHost() {
-		if($this->features["hasMysql"]) {
-			return $this->mysqlDB["Host"]["Hostname"];
-		}
-		else {
-			return "not configured";
-		}
-	}
-
-	public function mysqlPort() {
-		if($this->features["hasMysql"]) {
-			return $this->mysqlDB["Host"]["Port"];
-		}
-		else {
-			return "not configured";
-		}
-	}
-
-	public function mysqlDB() {
-		if($this->features["hasMysql"]) {
-			return $this->mysqlDB["Database"];
-		}
-		else {
-			return "not configured";
-		}
-	}
-
-	public function postgresqlUser() {
-		if($this->features["hasPostgresql"]) {
-			return $this->postgresqlDB["Credentials"]["Username"];
-		}
-		else {
-			return "not configured";
-		}
-	}
-
-	public function postgresqlPass() {
-		if($this->features["hasPostgresql"]) {
-			return $this->postgresqlDB["Credentials"]["Password"];
-		}
-		else {
-			return "not configured";
-		}
-	}
-
-	public function postgresqlHost() {
-		if($this->features["hasPostgresql"]) {
-			return $this->postgresqlDB["Host"]["Hostname"];
-		}
-		else {
-			return "not configured";
-		}
-	}
-
-	public function postgresqlPort() {
-		if($this->features["hasPostgresql"]) {
-			return $this->postgresqlDB["Host"]["Port"];
-		}
-		else {
-			return "not configured";
-		}
-	}
-
-	public function postgresqlDB() {
-		if($this->features["hasPostgresql"]) {
-			return $this->postgresqlDB["Database"];
-		}
-		else {
-			return "not configured";
-		}
-	}
-
 }
 
 ?>

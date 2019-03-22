@@ -1,34 +1,47 @@
 <?php
+	
+	//include website configuration file that sets up various website features.
+	//Features such as database details are made available through the reading of json files that store database details.
+	include("../config_Files/config_Header.php");
+	include("../config_Files/Speaker.php");
 
-	//Include the config_Header file which sets up the website class object.
-	include("config_Files/config_Header.php");
-	//The include file above creates a data object called $website.
-	//Database credentials can be retrieved from this object as shown below.
 ?>
 <!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>PHP Website Class Example Usage</title>
+<title>Untitled Document</title>
 </head>
+
 <body>
+	
 <?php
-
-	//Example usage for retrieving database credentials.
-
+	
 	if($website->hasMysql()) {
-		echo "Website has a Mysql Database Configuration!<br />";
-	  $mdb = mysqli_connect($website->mysqlHost(), $website->mysqlUser(), $website->mysqlPass(), $website->mysqlDB());
-	  if (mysqli_connect_errno()) { printf("Connect failed: %s<br />", mysqli_connect_error()); }
-		else { printf("Connection Success!<br />"); }
+		$id = array("fieldName"=>"id", "fieldValue"=>$_REQUEST['id'], "fieldType"=>"i");
+		$speaker = new Speaker($id, $dbAttributes, $website->mysqlConn());
+		echo "Connection Success! Model Searched: ".$id['fieldValue']."<br />";
+		if($speaker->detailsValid) {
+			echo "Range: ".$speaker->details['RangeID']."<br />";
+			echo "Speaker Name: ".$speaker->details['SpeakerName']."<br />";
+			echo "Speaker Summary: ".$speaker->details['SpeakerBlob']."<br />";
+			echo "Speaker Server Path: ".$speaker->details['SpeakerServerPath']."<br />";
+		}
+		else {
+			for($c = 0; $c < count($speaker->error); $c++) {
+				foreach($speaker->error[$c] as $field => $value) {
+					echo $field.": ".$value;
+				}
+				echo "<br />";
+			}
+		}
+		$speaker->load_finishes($priceQuery, $priceParams);
 	}
-	else { echo "Website does not have a Mysql Database Configuration :(<br />"; }
-	if($website->hasPostgresql()) {
-		echo "Website has a Postgresql Database Configuration!<br />";
-	  $pdb = pg_connect("host=".$website->postgresqlHost()." port=".$website->postgresqlDB()." dbname=".$website->postgresqlUser()." user=lamb password=".$website->postgresqlPass());
+	else {
+		echo $website->mysqlError();
 	}
-	else { echo "Website does not have a Postgresql Database Configuration :(<br />"; }
-
+	
 ?>
+	
 </body>
 </html>
